@@ -725,7 +725,7 @@ function resolve_todo(todo::InliningTodo, state::InliningState, flag::UInt8)
     (; match) = todo.spec::DelayedInliningSpec
 
     #XXX: update_valid_age!(min_valid[1], max_valid[1], sv)
-    isconst, src, argtypes = false, nothing, nothing
+    isconst, src = false, nothing
     if isa(match, InferenceResult)
         let inferred_src = match.src
             if isa(inferred_src, Const)
@@ -736,9 +736,6 @@ function resolve_todo(todo::InliningTodo, state::InliningState, flag::UInt8)
             else
                 isconst, src = false, inferred_src
             end
-        end
-        if is_stmt_inline(flag)
-            argtypes = match.argtypes
         end
     else
         linfo = get(state.mi_cache, todo.mi, nothing)
@@ -752,9 +749,6 @@ function resolve_todo(todo::InliningTodo, state::InliningState, flag::UInt8)
         else
             isconst, src = false, linfo
         end
-        if is_stmt_inline(flag)
-            argtypes = collect(todo.mi.specTypes.parameters)::Vector{Any}
-        end
     end
 
     et = state.et
@@ -764,18 +758,7 @@ function resolve_todo(todo::InliningTodo, state::InliningState, flag::UInt8)
         return ConstantCase(src)
     end
 
-    if argtypes !== nothing && src === nothing
-        inf_cache = state.inf_cache
-        inf_result = cache_lookup(todo.mi, argtypes, inf_cache)
-        if isa(inf_result, InferenceResult)
-            src = inf_result.src
-            if isa(src, OptimizationState)
-                src = src.src
-            end
-        end
-    end
-
-    src = state.policy(src, flag, match)
+    src = inlining_policy(state.interp, src, flag, match)
 
     if src === nothing
         return compileable_specialization(et, match)
@@ -1419,7 +1402,8 @@ end
 function late_inline_special_case!(ir::IRCode, sig::Signature, idx::Int, stmt::Expr, params::OptimizationParams)
     f, ft, atypes = sig.f, sig.ft, sig.atypes
     typ = ir.stmts[idx][:type]
-    if params.inlining && length(atypes) == 3 && istopfunction(f, :!==)
+    isinlining = params.inlining
+    if isinlining && length(atypes) == 3 && istopfunction(f, :!==)
         # special-case inliner for !== that precedes _methods_by_ftype union splitting
         # and that works, even though inference generally avoids inferring the `!==` Method
         if isa(typ, Const)
@@ -1431,7 +1415,7 @@ function late_inline_special_case!(ir::IRCode, sig::Signature, idx::Int, stmt::E
         not_call = Expr(:call, GlobalRef(Core.Intrinsics, :not_int), cmp_call_ssa)
         ir[SSAValue(idx)] = not_call
         return true
-    elseif params.inlining && length(atypes) == 3 && istopfunction(f, :(>:))
+    elseif isinlining && length(atypes) == 3 && istopfunction(f, :(>:))
         # special-case inliner for issupertype
         # that works, even though inference generally avoids inferring the `>:` Method
         if isa(typ, Const) && _builtin_nothrow(<:, Any[atypes[3], atypes[2]], typ)
@@ -1441,7 +1425,7 @@ function late_inline_special_case!(ir::IRCode, sig::Signature, idx::Int, stmt::E
         subtype_call = Expr(:call, GlobalRef(Core, :(<:)), stmt.args[3], stmt.args[2])
         ir[SSAValue(idx)] = subtype_call
         return true
-    elseif params.inlining && f === TypeVar && 2 <= length(atypes) <= 4 && (atypes[2] ⊑ Symbol)
+    elseif isinlining && f === TypeVar && 2 <= length(atypes) <= 4 && (atypes[2] ⊑ Symbol)
         ir[SSAValue(idx)] = Expr(:call, GlobalRef(Core, :_typevar), stmt.args[2],
             length(stmt.args) < 4 ? Bottom : stmt.args[3],
             length(stmt.args) == 2 ? Any : stmt.args[end])
