@@ -58,8 +58,8 @@ steps:
             - "/cache/repos:/cache/repos"
     commands: |
       echo "--- Check that the home directory exists"
-      echo $HOME
-      ls -ld $HOME
+      echo $${HOME}
+      ls -ld $${HOME}
 
       echo "--- Download build artifacts"
       rm -rf julia-linux64.tar.gz
@@ -71,7 +71,7 @@ steps:
 
       echo "--- Print Julia version info"
       julia-artifact/bin/julia -e 'using InteractiveUtils; InteractiveUtils.versioninfo()'
-      julia-artifact/bin/julia -e '@info "" Sys.CPU_THREADS'
+      julia-artifact/bin/julia -e '@info "" Sys.CPU_THREADS homedir() ENV["USER"]'
 
       echo "--- Run the Julia test suite"
       julia-artifact/bin/julia .buildkite/rr_capture.jl julia-artifact/bin/julia -e 'Base.runtests(["all"]; ncores = Sys.CPU_THREADS)'
