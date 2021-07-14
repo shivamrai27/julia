@@ -61,6 +61,7 @@ steps:
       HOME: "/home"
     commands: |
       echo "--- Check that the home directory exists"
+      echo $HOME
       ls -ld $HOME
 
       echo "--- Download build artifacts"
