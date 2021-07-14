@@ -71,7 +71,7 @@ steps:
 
       echo "--- Print Julia version info"
       julia-artifact/bin/julia -e 'using InteractiveUtils; InteractiveUtils.versioninfo()'
-      julia-artifact/bin/julia -e '@info "" Sys.CPU_THREADS homedir() ENV["USER"]'
+      julia-artifact/bin/julia -e '@info "" Sys.CPU_THREADS homedir() withenv(homedir, "HOME" => nothing) ENV["USER"]'
 
       echo "--- Run the Julia test suite"
       julia-artifact/bin/julia .buildkite/rr_capture.jl julia-artifact/bin/julia -e 'Base.runtests(["all"]; ncores = Sys.CPU_THREADS)'
