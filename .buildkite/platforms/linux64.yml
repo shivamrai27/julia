@@ -56,9 +56,6 @@ steps:
           workspaces:
             # Include `/cache/repos` so that our `git` version introspection works.
             - "/cache/repos:/cache/repos"
-    env:
-      USER: "myusername"
-      HOME: "/home"
     commands: |
       echo "--- Check that the home directory exists"
       echo $HOME
